@@ -51,7 +51,7 @@ if(POLICY CMP0066)
 endif()
 
 # rocSPARSE project
-project(rocsparse LANGUAGES CXX Fortran C)
+project(rocsparse LANGUAGES CXX )
 
 # Determine if CXX Compiler is hip-clang
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

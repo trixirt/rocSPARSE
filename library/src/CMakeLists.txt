@@ -21,14 +21,6 @@
 #
 # ########################################################################
 
-# rocSPARSE Fortran source
-if (NOT WIN32)
-set(rocsparse_fortran_source
-  src/rocsparse_enums.f90
-  src/rocsparse.f90
-)
-endif()
-
 # rocSPARSE source
 set(rocsparse_source
   src/handle.cpp
