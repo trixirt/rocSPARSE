@@ -7,10 +7,12 @@
 # hipcc does not support some clang flags
 %global build_cxxflags %(echo %{optflags} | sed -e 's/-fstack-protector-strong/-Xarch_host -fstack-protector-strong/' -e 's/-fcf-protection/-Xarch_host -fcf-protection/')
 
+# $gpu will be evaluated in the loops below
+%global _vpath_builddir %{_vendor}-%{_target_os}-build-${gpu}
+
 # Tests are downloaded so this option is only good for local building
 # Also need to
 # export QA_RPATHS=0xff
-# Testing uses the default rocBLAS - only test on gfx10 and gfx11
 %bcond_with test
 
 Name:           rocsparse
@@ -34,6 +36,7 @@ BuildRequires:  rocm-comgr-devel
 BuildRequires:  rocm-hip-devel
 BuildRequires:  rocm-runtime-devel
 BuildRequires:  rocm-rpm-macros
+BuildRequires:  rocm-rpm-macros-modules
 BuildRequires:  rocprim-devel
 
 %if %{with test}
@@ -69,37 +72,44 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 %autosetup -p1 -n %{upstreamname}-rocm-%{version}
 
 %build
-%cmake \
-    -G Ninja \
-    -DBUILD_FILE_REORG_BACKWARD_COMPATIBILITY=OFF \
-    -DROCM_SYMLINK_LIBS=OFF \
-    -DHIP_PLATFORM=amd \
+for gpu in %{rocm_gpu_list}
+do
+    module load rocm/$gpu
+    %cmake %rocm_cmake_options \
 %if %{with test}
-    -DBUILD_CLIENTS_BENCHMARKS=ON \
-    -DBUILD_CLIENTS_TESTS=ON \
-    -DBUILD_CLIENTS_TESTS_OPENMP=OFF \
-    -DBUILD_FORTRAN_CLIENTS=OFF
+           %rocm_cmake_test_options
 %endif
+
+    %cmake_build
+    module purge
+done
 
 %cmake_build
 
 %install
-%cmake_install
+for gpu in %{rocm_gpu_list}
+do
+    %cmake_install
+done
 
 %files
 %license LICENSE.md
 %exclude %{_docdir}/%{name}/LICENSE.md
 %{_libdir}/lib%{name}.so.*
+%{_libdir}/rocm/gfx*/lib/lib%{name}.so.*
 
 %files devel
 %doc README.md
 %{_includedir}/%{name}
 %{_libdir}/cmake/%{name}/
 %{_libdir}/lib%{name}.so
+%{_libdir}/rocm/gfx*/lib/lib%{name}.so
+%{_libdir}/rocm/gfx*/lib/cmake/%{name}/
 
 %if %{with test}
 %files test
 %{_bindir}/%{name}*
+%{_libdir}/rocm/gfx*/bin/%{name}*
 %endif
 
 %changelog
