@@ -7,6 +7,12 @@
 # hipcc does not support some clang flags
 %global build_cxxflags %(echo %{optflags} | sed -e 's/-fstack-protector-strong/-Xarch_host -fstack-protector-strong/' -e 's/-fcf-protection/-Xarch_host -fcf-protection/')
 
+# Tests are downloaded so this option is only good for local building
+# Also need to
+# export QA_RPATHS=0xff
+# Testing uses the default rocBLAS - only test on gfx10 and gfx11
+%bcond_with test
+
 Name:           rocsparse
 Version:        %{rocm_version}
 Release:        1%{?dist}
@@ -28,8 +34,13 @@ BuildRequires:  rocm-comgr-devel
 BuildRequires:  rocm-hip-devel
 BuildRequires:  rocm-runtime-devel
 BuildRequires:  rocm-rpm-macros
-#BuildRequires:  rocblas-devel
 BuildRequires:  rocprim-devel
+
+%if %{with test}
+BuildRequires:  gtest-devel
+BuildRequires:  libomp-devel
+BuildRequires:  rocblas-devel
+%endif
 
 %description
 rocSPARSE exposes a common interface that provides Basic
@@ -45,11 +56,31 @@ Summary: Libraries and headers for %{name}
 %description devel
 %{summary}
 
+%if %{with test}
+%package test
+Summary:        Tests for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
+%description test
+%{summary}
+%endif
+
 %prep
 %autosetup -p1 -n %{upstreamname}-rocm-%{version}
 
 %build
-%cmake %rocm_cmake_options
+%cmake \
+    -G Ninja \
+    -DBUILD_FILE_REORG_BACKWARD_COMPATIBILITY=OFF \
+    -DROCM_SYMLINK_LIBS=OFF \
+    -DHIP_PLATFORM=amd \
+%if %{with test}
+    -DBUILD_CLIENTS_BENCHMARKS=ON \
+    -DBUILD_CLIENTS_TESTS=ON \
+    -DBUILD_CLIENTS_TESTS_OPENMP=OFF \
+    -DBUILD_FORTRAN_CLIENTS=OFF
+%endif
+
 %cmake_build
 
 %install
@@ -65,6 +96,11 @@ Summary: Libraries and headers for %{name}
 %{_includedir}/%{name}
 %{_libdir}/cmake/%{name}/
 %{_libdir}/lib%{name}.so
+
+%if %{with test}
+%files test
+%{_bindir}/%{name}*
+%endif
 
 %changelog
 * Sun Oct 8 2023 Tom Rix <trix@redhat.com>  - 5.7.0-1
